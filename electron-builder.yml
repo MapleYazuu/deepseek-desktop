@@ -1,0 +1,47 @@
+# electron-builder 打包配置（仅 Windows）
+# 产物：
+#   release/大肥鱼助手-Setup-1.2.0.exe       （NSIS 安装版）
+#   release/大肥鱼助手-1.2.0-portable.exe    （免安装便携版）
+appId: com.dafeiyu.assistant
+productName: 大肥鱼助手
+
+directories:
+  output: release            # 安装包输出目录
+  buildResources: assets     # 图标等构建资源目录
+
+files:
+  - dist/**/*                # 编译产物
+  - assets/**/*              # 图标资源
+  - package.json
+
+asar: true                   # 源码打包进 app.asar
+npmRebuild: false            # 无内置原生模块（robotjs 为可选安装，见 README）
+electronLanguages:
+  - zh-CN
+  - en-US
+
+win:
+  icon: assets/icon.ico      # 应用图标（多尺寸 ico）
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: 大肥鱼助手
+  uninstallDisplayName: 大肥鱼助手
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}
+
+# 不发布到任何仓库
+publish: null

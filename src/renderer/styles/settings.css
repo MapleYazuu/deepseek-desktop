@@ -1,0 +1,250 @@
+/* 设置页样式（暗色） */
+:root {
+  --bg: #15161d;
+  --card: #1b1e29;
+  --border: #2a2f3d;
+  --text: #e8eaf2;
+  --muted: #9aa1b5;
+  --accent: #4d6bfe;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 14px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  font-size: 13px;
+  user-select: none;
+  overflow-y: auto; /* 内容较多时允许滚动 */
+}
+
+/* ---------- 横幅 ---------- */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(77, 107, 254, 0.5);
+  background: rgba(77, 107, 254, 0.12);
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.banner.hidden {
+  display: none;
+}
+
+.banner strong {
+  color: #aebcff;
+}
+
+.banner p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 12px;
+}
+
+.banner button {
+  flex-shrink: 0;
+}
+
+/* ---------- 卡片 ---------- */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.card h2 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.desc {
+  margin: 0 0 12px;
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 12px;
+}
+
+/* ---------- 表单行 ---------- */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.row label {
+  width: 130px;
+  flex-shrink: 0;
+  color: var(--text);
+}
+
+.row.actions {
+  margin-top: 6px;
+  margin-bottom: 0;
+}
+
+/* 快捷键输入框 */
+input.hotkey {
+  flex: 1;
+  background: #10121a;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 8px 12px;
+  font-family: 'Consolas', 'Microsoft YaHei', monospace;
+  font-size: 13px;
+  outline: none;
+}
+
+input.hotkey:focus,
+input.hotkey.recording {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(77, 107, 254, 0.18);
+}
+
+/* 开关行 */
+.switch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.switch-row input {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+/* ---------- 按钮 ---------- */
+.btn {
+  background: #232837;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn:hover {
+  background: #2b3245;
+}
+
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn.primary:hover {
+  background: #5d7aff;
+}
+
+.btn.danger {
+  background: #3a2430;
+  border-color: #5b3344;
+  color: #f0b9c8;
+}
+
+.btn.danger:hover {
+  background: #4a2c3b;
+}
+
+/* ---------- 消息 ---------- */
+.msg {
+  font-size: 12px;
+}
+
+.msg.ok {
+  color: #57c98a;
+}
+
+.msg.err {
+  color: #f08a8a;
+}
+
+/* ---------- 关于 ---------- */
+.meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ---------- 桌面悬浮窗（鲸鱼娘） ---------- */
+.whale-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 10px 0;
+}
+
+.whale-preview {
+  width: 92px;
+  height: 92px;
+  object-fit: contain;
+  background: #10121a;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.whale-preview-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.whale-preview-side .desc {
+  margin: 2px 0 0;
+}
+
+.slider-row label {
+  width: 60px;
+}
+
+.slider-row input[type='range'] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.slider-val {
+  width: 52px;
+  text-align: right;
+  color: var(--muted);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.faq {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  line-height: 1.9;
+  font-size: 12px;
+}
+
+.faq code {
+  background: #10121a;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: 'Consolas', monospace;
+}

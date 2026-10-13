@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>页面加载失败 - 大肥鱼助手</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #15161d;
+        color: #e8eaf2;
+        font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .box {
+        text-align: center;
+        max-width: 480px;
+        padding: 32px;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 12px;
+      }
+      p {
+        color: #9aa1b5;
+        font-size: 14px;
+        line-height: 1.7;
+        margin: 6px 0;
+      }
+      a {
+        color: #4d6bfe;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <h1>😕 页面加载失败</h1>
+      <p>无法连接到 chat.deepseek.com，请检查网络连接。</p>
+      <p>页面将在 8 秒后自动重试，也可以 <a href="https://chat.deepseek.com/">点击这里立即重试</a>。</p>
+    </div>
+    <script>
+      setTimeout(function () {
+        location.href = 'https://chat.deepseek.com/';
+      }, 8000);
+    </script>
+  </body>
+</html>

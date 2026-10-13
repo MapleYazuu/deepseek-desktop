@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>大肥鱼助手</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: transparent;
+        user-select: none;
+      }
+      /* 图片占满窗口，contain 保持宽高比不变形（透明留白区域可点击穿透） */
+      #whale-img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        cursor: pointer;
+        -webkit-user-drag: none;
+        /* 轻轻上下浮动，更可爱 */
+        animation: float 3.4s ease-in-out infinite;
+      }
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-4%);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <img id="whale-img" alt="鲸鱼娘" draggable="false" />
+    <script src="./whale.js"></script>
+  </body>
+</html>

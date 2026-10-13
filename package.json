@@ -1,0 +1,41 @@
+{
+  "name": "dafeiyu-assistant",
+  "productName": "大肥鱼助手",
+  "version": "1.2.0",
+  "description": "大肥鱼助手 - 截图 AI 分析工具",
+  "main": "dist/main/index.js",
+  "author": {
+    "name": "DeepSeek Screenshot Helper"
+  },
+  "license": "MIT",
+  "private": true,
+  "os": [
+    "win32"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "compile": "npm run clean && node scripts/build.mjs",
+    "dev": "npm run compile && electron .",
+    "watch": "npm run compile && concurrently -k \"tsc -w -p tsconfig.main.json\" \"tsc -w -p tsconfig.renderer.json\" \"node scripts/copy-assets.mjs --watch\" \"electronmon .\"",
+    "build": "npm run compile && electron-builder --win"
+  },
+  "dependencies": {
+    "electron-store": "8.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "concurrently": "^10.0.6",
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3",
+    "electronmon": "^2.0.4",
+    "typescript": "^5.9.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron"
+    ]
+  }
+}

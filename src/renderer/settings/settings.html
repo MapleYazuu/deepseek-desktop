@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>设置 - 大肥鱼助手</title>
+    <link rel="stylesheet" href="../styles/settings.css" />
+  </head>
+  <body>
+    <!-- 首次启动引导横幅 -->
+    <div id="banner" class="banner hidden">
+      <div>
+        <strong>👋 欢迎使用大肥鱼助手</strong>
+        <p>1. 在主窗口登录 DeepSeek 账号；2. 按需修改下方快捷键；3. 回到主窗口，按下快捷键即可截图并自动粘贴到输入框，手动按回车发送。</p>
+      </div>
+      <button id="btn-got-it">知道了</button>
+    </div>
+
+    <!-- 快捷键 -->
+    <section class="card">
+      <h2>全局快捷键</h2>
+      <p class="desc">点击输入框后按下新的按键组合即可修改（单键如 F1、组合键如 Ctrl+Alt+D），保存后立即生效，无需重启。</p>
+      <div class="row">
+        <label>全屏截图并粘贴</label>
+        <input id="hotkey-fullscreen" class="hotkey" readonly placeholder="点击后按键…" />
+      </div>
+      <div class="row">
+        <label>区域截图并粘贴</label>
+        <input id="hotkey-region" class="hotkey" readonly placeholder="点击后按键…" />
+      </div>
+      <div class="row actions">
+        <button id="btn-save" class="btn primary">保存快捷键</button>
+        <span id="hotkey-msg" class="msg"></span>
+      </div>
+    </section>
+
+    <!-- 启动与窗口 -->
+    <section class="card">
+      <h2>启动与窗口</h2>
+      <label class="switch-row">
+        <input type="checkbox" id="opt-auto-show" />
+        <span>启动时自动打开主窗口</span>
+      </label>
+      <label class="switch-row">
+        <input type="checkbox" id="opt-minimize-tray" />
+        <span>关闭窗口时最小化到系统托盘</span>
+      </label>
+      <label class="switch-row">
+        <input type="checkbox" id="opt-auto-launch" />
+        <span>开机自启（仅安装版生效）</span>
+      </label>
+      <label class="switch-row">
+        <input type="checkbox" id="opt-random-title" />
+        <span>启用随机标题彩蛋（标题栏与托盘提示随机文案）</span>
+      </label>
+    </section>
+
+    <!-- 浏览器数据 -->
+    <section class="card">
+      <h2>浏览器数据</h2>
+      <p class="desc">清除 DeepSeek 网页的 Cookie / 缓存 / 本地数据。清理后需要重新登录 DeepSeek。</p>
+      <div class="row actions">
+        <button id="btn-clear" class="btn danger">清除浏览器数据</button>
+        <span id="clear-msg" class="msg"></span>
+      </div>
+    </section>
+
+    <!-- 桌面悬浮窗（鲸鱼娘） -->
+    <section class="card">
+      <h2>桌面悬浮窗（鲸鱼娘）</h2>
+      <label class="switch-row">
+        <input type="checkbox" id="whale-enabled" />
+        <span>启用悬浮窗</span>
+      </label>
+      <div class="whale-preview-row">
+        <img id="whale-preview" class="whale-preview" alt="悬浮窗图片预览" />
+        <div class="whale-preview-side">
+          <button id="whale-choose" class="btn">选择图片…</button>
+          <button id="whale-reset" class="btn">恢复默认图片</button>
+          <p class="desc" id="whale-image-desc">支持 PNG / JPG / GIF / WEBP 动图</p>
+        </div>
+      </div>
+      <div class="row slider-row">
+        <label>宽度</label>
+        <input type="range" id="whale-width" min="60" max="300" step="1" />
+        <span class="slider-val" id="whale-width-val"></span>
+      </div>
+      <div class="row slider-row">
+        <label>高度</label>
+        <input type="range" id="whale-height" min="60" max="300" step="1" />
+        <span class="slider-val" id="whale-height-val"></span>
+      </div>
+      <label class="switch-row">
+        <input type="checkbox" id="whale-locked" />
+        <span>锁定位置（不可拖动）</span>
+      </label>
+      <div class="row actions">
+        <button id="whale-reset-pos" class="btn">重置位置（右下角）</button>
+        <span id="whale-msg" class="msg"></span>
+      </div>
+    </section>
+
+    <!-- 关于 -->
+    <section class="card">
+      <h2>关于</h2>
+      <p class="desc">大肥鱼助手：全局快捷键截图 → 写入剪贴板 → 自动粘贴到 DeepSeek 输入框 → 手动按回车发送。截图只在本地处理，不上传任何第三方服务器（DeepSeek 网页除外）。</p>
+      <p class="meta" id="app-meta"></p>
+      <ul class="faq">
+        <li>粘贴失效？点击输入框后手动 Ctrl+V；或按 README 安装并重编译 <code>robotjs</code>。</li>
+        <li>截图黑屏？以环境变量 <code>DSH_DISABLE_GPU=1</code> 启动应用。</li>
+        <li>快捷键冲突？换一个组合键即可，保存时会自动检测。</li>
+      </ul>
+    </section>
+
+    <script src="./settings.js"></script>
+  </body>
+</html>
