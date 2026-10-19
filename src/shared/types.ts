@@ -82,8 +82,8 @@ export interface HotkeyUpdateResult {
 /** 覆盖层初始化信息（每个显示器一份） */
 export interface OverlayInfo {
   displayId: number;
-  /** 该显示器截图（物理分辨率）的 dataURL */
-  dataURL: string;
+  /** 该显示器截图的 file:// URL（主进程写入临时 PNG 后提供，避免大体积 dataURL 走 IPC） */
+  imageUrl: string;
   /** 截图物理像素尺寸 */
   imageWidth: number;
   imageHeight: number;

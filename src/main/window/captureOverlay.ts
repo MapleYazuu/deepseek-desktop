@@ -82,6 +82,13 @@ export function showOverlayWindows(overlays: OverlayWindow[]): void {
   const cursor = screen.getCursorScreenPoint();
   const nearest = screen.getDisplayNearestPoint(cursor);
   overlays.find((item) => item.displayId === nearest.id)?.win.focus();
+  // 再次断言置顶与 z 序：确保覆盖层出现在所有窗口之上（含其他置顶窗口）
+  for (const item of overlays) {
+    if (!item.win.isDestroyed()) {
+      item.win.setAlwaysOnTop(true, 'screen-saver');
+      item.win.moveTop();
+    }
+  }
 }
 
 /** 关闭全部覆盖层窗口 */

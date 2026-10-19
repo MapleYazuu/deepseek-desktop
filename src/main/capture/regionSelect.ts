@@ -2,15 +2,25 @@
  * 区域截图（核心功能）：
  *  1. 隐藏本应用窗口；
  *  2. 对每个显示器调用 desktopCapturer 抓取物理分辨率画面；
- *  3. 每个显示器创建一个全屏透明覆盖层窗口（见 window/captureOverlay.ts）；
- *  4. 用户在覆盖层上拖拽选区，松开后把选区坐标换算为物理像素；
- *  5. 裁剪 -> 写入系统剪贴板 -> 自动粘贴到 DeepSeek 输入框。
+ *  3. 截图写入临时 PNG 文件（覆盖层通过 file:// 加载，避免数十 MB 的
+ *     dataURL 字符串经 IPC 传输导致卡死/失败）；
+ *  4. 每个显示器创建一个全屏透明覆盖层窗口（见 window/captureOverlay.ts）；
+ *  5. 用户在覆盖层上拖拽选区，松开后把选区坐标换算为物理像素；
+ *  6. 裁剪 -> 写入系统剪贴板 -> 自动粘贴到 DeepSeek 输入框。
+ *
+ * 防卡死三重保险：
+ *  - 覆盖层打开期间再次触发截图快捷键/托盘菜单/悬浮窗点击 = 取消当前选区；
+ *  - 120 秒看门狗：选区流程超时自动取消，绝不永久卡住鼠标；
+ *  - 覆盖层页面脚本异常、图片加载失败、preload 失败都会触发取消。
  *
  * 多显示器：每个显示器独立覆盖层，选区限制在单个显示器内；
  * DPI 缩放：覆盖层页面按「图片物理尺寸 / 窗口 CSS 尺寸」计算换算系数 fx/fy，
  * 与 Windows 的每显示器缩放设置无关，坐标换算始终正确。
  */
-import { ClipboardItem, clipboard, desktopCapturer, screen, NativeImage } from 'electron';
+import { app, ClipboardItem, clipboard, desktopCapturer, screen, NativeImage } from 'electron';
+import * as fs from 'fs';
+import * as path from 'path';
+import { pathToFileURL } from 'url';
 import type { AppContext } from '../context';
 import {
   buildOverlayWindows,
@@ -25,10 +35,15 @@ import type { OverlayConfirmPayload, OverlayInfo } from '../../shared/types';
 /** 快捷键连按防抖（600ms 内只触发一次） */
 const debounce = createDebounce(600);
 
+/** 选区流程看门狗超时（毫秒）：超时自动取消，防止覆盖层卡住鼠标 */
+const WATCHDOG_TIMEOUT_MS = 120_000;
+
 /** 当前进行中的选区会话 */
 interface ActiveCapture {
   overlays: OverlayWindow[];
   images: Map<number, NativeImage>;
+  /** 显示器 id -> 截图临时 PNG 文件路径 */
+  imageFiles: Map<number, string>;
   resolve: (image: NativeImage | null) => void;
   settled: boolean;
 }
@@ -67,9 +82,42 @@ async function captureAllDisplays(displays: Electron.Display[]): Promise<Map<num
   return images;
 }
 
+/** 把各显示器截图写入临时 PNG 文件（返回 displayId -> 文件路径） */
+function writeCaptureFiles(images: Map<number, NativeImage>): Map<number, string> {
+  const files = new Map<number, string>();
+  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  for (const [displayId, image] of images) {
+    try {
+      const filePath = path.join(app.getPath('temp'), `dafeiyu-capture-${displayId}-${stamp}.png`);
+      fs.writeFileSync(filePath, image.toPNG());
+      files.set(displayId, filePath);
+    } catch (err) {
+      console.error(`[区域截图] 写入临时截图文件失败（显示器 ${displayId}）:`, err);
+    }
+  }
+  return files;
+}
+
+/** 清理临时截图文件 */
+function cleanCaptureFiles(files: Map<number, string>): void {
+  for (const filePath of files.values()) {
+    try {
+      fs.unlinkSync(filePath);
+    } catch {
+      /* 清理失败不影响功能（临时目录会被系统回收） */
+    }
+  }
+}
+
 /** 主流程：区域截图并粘贴 */
 export async function captureRegionAndPaste(ctx: AppContext): Promise<void> {
-  if (getActive() || !debounce()) return;
+  // 已有选区进行中：再次触发视为取消——覆盖层异常卡住时，
+  // 再按一次截图快捷键 / 点一次托盘菜单 / 点一下悬浮窗即可强制退出选区
+  if (getActive()) {
+    handleOverlayCancel();
+    return;
+  }
+  if (!debounce()) return;
 
   const main = ctx.mainWindow;
   const wasVisible = main.isVisible();
@@ -95,6 +143,9 @@ export async function captureRegionAndPaste(ctx: AppContext): Promise<void> {
       return;
     }
 
+    // 截图写入临时 PNG 文件（覆盖层用 file:// 加载）
+    const imageFiles = writeCaptureFiles(images);
+
     // 创建覆盖层窗口并等待用户选择
     const targets = displays
       .filter((d) => images.has(d.id))
@@ -102,20 +153,29 @@ export async function captureRegionAndPaste(ctx: AppContext): Promise<void> {
 
     const selected = await new Promise<NativeImage | null>((resolve) => {
       let resolved = false;
+      let watchdog: NodeJS.Timeout | null = null;
       const settle = (image: NativeImage | null) => {
         if (resolved) return;
         resolved = true;
+        if (watchdog) clearTimeout(watchdog);
         resolve(image);
       };
       // 先创建覆盖层，再登记 active 状态（保证 overlay:info IPC 到来时 active 已就绪）
       const overlays = buildOverlayWindows(targets, () => settle(null));
-      active = { overlays, images, resolve: settle, settled: false };
+      active = { overlays, images, imageFiles, resolve: settle, settled: false };
       showOverlayWindows(overlays);
+      // 看门狗：覆盖层页面脚本异常、IPC 失效等导致选区流程无响应时，
+      // 超时自动取消，绝不永久卡住鼠标
+      watchdog = setTimeout(() => {
+        console.warn('[区域截图] 选区超时未完成，自动取消');
+        settle(null);
+      }, WATCHDOG_TIMEOUT_MS);
     });
 
     const current = getActive();
     if (current) {
       closeOverlayWindows(current.overlays);
+      cleanCaptureFiles(current.imageFiles);
       active = null;
     }
 
@@ -142,6 +202,7 @@ export async function captureRegionAndPaste(ctx: AppContext): Promise<void> {
     const current = getActive();
     if (current) {
       closeOverlayWindows(current.overlays);
+      cleanCaptureFiles(current.imageFiles);
       active = null;
     }
     if (settingsWasVisible && settingsWin && !settingsWin.isDestroyed()) settingsWin.showInactive();
@@ -152,12 +213,14 @@ export async function captureRegionAndPaste(ctx: AppContext): Promise<void> {
 
 /** IPC：覆盖层页面初始化时获取该显示器的截图信息 */
 export function getOverlayInfo(displayId: number): OverlayInfo | null {
+  const filePath = active?.imageFiles.get(displayId);
   const image = active?.images.get(displayId);
-  if (!image) return null;
+  if (!filePath || !image) return null;
   const size = image.getSize();
   return {
     displayId,
-    dataURL: image.toDataURL(),
+    // file:// URL：避免数十 MB 的 dataURL 字符串经 IPC 传输（部分机器会卡死）
+    imageUrl: pathToFileURL(filePath).href,
     imageWidth: size.width,
     imageHeight: size.height,
   };
@@ -187,7 +250,7 @@ export function handleOverlayConfirm(payload: OverlayConfirmPayload): void {
   active.resolve(image.crop({ x, y, width, height }));
 }
 
-/** IPC：覆盖层取消（Esc / 右键 / 选区过小） */
+/** IPC：覆盖层取消（Esc / 右键 / 选区过小 / 二次触发 / 看门狗超时） */
 export function handleOverlayCancel(): void {
   if (active) active.resolve(null);
 }

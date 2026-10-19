@@ -1,0 +1,45 @@
+# electron-builder 打包配置（D 盘输出版：本机环境会拦截「用户资料夹内的程序执行」，
+# 把中间安装器放到 D 盘执行即可正常完成 NSIS 构建）
+# 用法：npx electron-builder --win --config electron-builder-d.yml
+appId: com.dafeiyu.assistant
+productName: 大肥鱼助手
+
+directories:
+  output: D:/dafeiyu-build    # 输出到 D 盘
+  buildResources: assets
+
+files:
+  - dist/**/*
+  - assets/**/*
+  - package.json
+
+asar: true
+npmRebuild: false
+electronLanguages:
+  - zh-CN
+  - en-US
+
+win:
+  icon: assets/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: 大肥鱼助手
+  uninstallDisplayName: 大肥鱼助手
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}
+
+publish: null

@@ -83,51 +83,65 @@ function resetSelection(): void {
 }
 
 async function init(): Promise<void> {
-  const info = await window.overlayApi.getInfo(displayId);
-  if (!info) {
-    cancel();
-    return;
+  try {
+    // preload 失效等异常情况：无法通信时交给主进程看门狗兜底取消
+    if (typeof window.overlayApi === 'undefined') return;
+    const info = await window.overlayApi.getInfo(displayId);
+    if (!info) {
+      cancel();
+      return;
+    }
+    img.src = info.imageUrl;
+    // 图片加载失败：立即取消选区（避免覆盖层卡住鼠标）
+    img.addEventListener('error', () => cancel());
+    await img.decode().catch(() => cancel());
+
+    // 换算系数：图片物理像素 / 窗口 CSS 像素
+    fx = info.imageWidth / window.innerWidth;
+    fy = info.imageHeight / window.innerHeight;
+
+    // 其他覆盖层开始拖拽时清空本覆盖层选区
+    window.overlayApi.onSiblingActive(() => resetSelection());
+
+    // 鼠标事件
+    document.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return; // 仅左键
+      start = { x: e.clientX, y: e.clientY };
+      end = { ...start };
+      window.overlayApi.activate(displayId);
+      updateSelection();
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!start) return;
+      end = { x: e.clientX, y: e.clientY };
+      updateSelection();
+    });
+    document.addEventListener('mouseup', (e) => {
+      if (!start || e.button !== 0) return;
+      end = { x: e.clientX, y: e.clientY };
+      confirmSelection();
+      start = null;
+    });
+
+    // 右键取消
+    document.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      cancel();
+    });
+
+    // Esc 取消
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') cancel();
+    });
+  } catch (err) {
+    // 页面脚本异常：尝试取消，避免覆盖层卡住鼠标
+    try {
+      cancel();
+    } catch {
+      /* 无法通信时由主进程看门狗兜底 */
+    }
+    console.error('[覆盖层] 初始化失败:', err);
   }
-  img.src = info.dataURL;
-  await img.decode().catch(() => undefined);
-
-  // 换算系数：图片物理像素 / 窗口 CSS 像素
-  fx = info.imageWidth / window.innerWidth;
-  fy = info.imageHeight / window.innerHeight;
-
-  // 其他覆盖层开始拖拽时清空本覆盖层选区
-  window.overlayApi.onSiblingActive(() => resetSelection());
-
-  // 鼠标事件
-  document.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return; // 仅左键
-    start = { x: e.clientX, y: e.clientY };
-    end = { ...start };
-    window.overlayApi.activate(displayId);
-    updateSelection();
-  });
-  document.addEventListener('mousemove', (e) => {
-    if (!start) return;
-    end = { x: e.clientX, y: e.clientY };
-    updateSelection();
-  });
-  document.addEventListener('mouseup', (e) => {
-    if (!start || e.button !== 0) return;
-    end = { x: e.clientX, y: e.clientY };
-    confirmSelection();
-    start = null;
-  });
-
-  // 右键取消
-  document.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-    cancel();
-  });
-
-  // Esc 取消
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') cancel();
-  });
 }
 
 void init();

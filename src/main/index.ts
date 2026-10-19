@@ -37,6 +37,31 @@ function quitApp(): void {
   app.quit();
 }
 
+/**
+ * 把致命错误写入日志文件（打包后的 GUI 应用看不到控制台，
+ * 便于排查「启动不了」等问题）。日志位于 %APPDATA%\大肥鱼助手\error.log
+ */
+function logFatal(tag: string, err: unknown): void {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const fs = require('fs') as typeof import('fs');
+    const dir = app.getPath('userData');
+    fs.mkdirSync(dir, { recursive: true });
+    const text = err instanceof Error ? (err.stack ?? err.message) : String(err);
+    fs.appendFileSync(
+      path.join(dir, 'error.log'),
+      `[${new Date().toISOString()}] ${tag}: ${text}\n`,
+      'utf-8'
+    );
+  } catch {
+    /* 日志写入失败不阻塞退出 */
+  }
+}
+
+// 未捕获异常兜底：写日志，避免启动失败时无从排查
+process.on('uncaughtException', (err) => logFatal('uncaughtException', err));
+process.on('unhandledRejection', (err) => logFatal('unhandledRejection', err));
+
 /** 向所有窗口广播状态消息 */
 function sendStatus(message: StatusMessage): void {
   mainWindow.getWindow()?.webContents.send('app:status', message);
@@ -87,6 +112,7 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   app.on('second-instance', () => void mainWindow.show());
   app.whenReady().then(onReady).catch((err) => {
+    logFatal('init', err);
     console.error('应用初始化失败:', err);
     app.quit();
   });

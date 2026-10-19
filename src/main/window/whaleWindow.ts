@@ -31,6 +31,8 @@ export class WhaleWindowController {
   private savePositionTimer: NodeJS.Timeout | null = null;
   /** 拖拽中：光标与窗口左上角的偏移（null = 未在拖拽） */
   private dragOffset: { x: number; y: number } | null = null;
+  /** 置顶保活定时器：周期性重断言 alwaysOnTop，防止被系统事件挤出置顶层 */
+  private topMostTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly deps: WhaleWindowDeps) {}
 
@@ -125,7 +127,16 @@ export class WhaleWindowController {
       });
       win.on('closed', () => {
         this.win = null;
+        // 清理置顶保活定时器
+        if (this.topMostTimer) {
+          clearInterval(this.topMostTimer);
+          this.topMostTimer = null;
+        }
       });
+      // 置顶保活：其他置顶窗口被激活、睡眠唤醒、UAC 等系统事件都可能把
+      // 悬浮窗挤出置顶层，周期性地重断言 alwaysOnTop + moveTop 保证它一直在最上面
+      win.on('show', () => this.assertTopMost());
+      this.topMostTimer = setInterval(() => this.assertTopMost(), 3000);
       // preload 加载失败时记录日志，便于排查
       win.webContents.on('preload-error', (_event, preloadPath, error) => {
         console.error('[悬浮窗] preload 加载失败:', preloadPath, error);
@@ -297,6 +308,19 @@ export class WhaleWindowController {
   private scheduleSavePosition(): void {
     if (this.savePositionTimer) clearTimeout(this.savePositionTimer);
     this.savePositionTimer = setTimeout(() => this.savePositionNow(), 400);
+  }
+
+  /**
+   * 重断言置顶：Windows 的置顶窗口 z 序会被「其他置顶窗口激活、睡眠唤醒、
+   * UAC 弹窗」等系统事件打乱，悬浮窗自身又不抢焦点（focusable:false），
+   * 掉下去后不会自动回来。这里周期性 setAlwaysOnTop + moveTop 保活。
+   */
+  private assertTopMost(): void {
+    const cfg = getConfig().whale;
+    if (!cfg.enabled || !cfg.visible) return;
+    if (!this.win || this.win.isDestroyed() || !this.win.isVisible()) return;
+    this.win.setAlwaysOnTop(true, 'screen-saver');
+    this.win.moveTop();
   }
 
   /** 右键菜单（Electron 原生 Menu，悬浮窗页面通过 IPC 触发） */

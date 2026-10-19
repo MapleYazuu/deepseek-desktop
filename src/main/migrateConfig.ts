@@ -47,6 +47,65 @@ function copyDirContents(from: string, to: string): void {
   }
 }
 
+/**
+ * 配置文件自愈（在 electron-store 读取之前执行，防止坏配置导致应用启动即崩）：
+ *  - 去除 UTF-8 BOM（部分工具写出的带 BOM JSON 会让 Node 的 JSON.parse 抛错）
+ *  - JSON 损坏时：把坏文件改名留档，并尝试用 .bak 恢复（恢复时同样校验并去 BOM）
+ *  - 备份也损坏时删除坏文件，让 electron-store 使用默认配置继续启动
+ */
+function sanitizeConfigFile(newConfigPath: string): void {
+  try {
+    if (!fs.existsSync(newConfigPath)) return;
+    const raw = fs.readFileSync(newConfigPath);
+    const hasBom = raw.length >= 3 && raw[0] === 0xef && raw[1] === 0xbb && raw[2] === 0xbf;
+    const stripped = hasBom ? raw.subarray(3) : raw;
+    try {
+      JSON.parse(stripped.toString('utf8'));
+      // 内容有效：若带 BOM 则写回无 BOM 版本
+      if (hasBom) {
+        fs.writeFileSync(newConfigPath, stripped);
+        console.log('[配置迁移] 已去除配置文件 BOM');
+      }
+    } catch {
+      // 配置损坏：改名留档
+      const corrupt = newConfigPath + '.corrupt-' + Date.now();
+      fs.renameSync(newConfigPath, corrupt);
+      console.warn('[配置迁移] 配置文件损坏，已留档:', corrupt);
+      const bak = newConfigPath + '.bak';
+      let restored = false;
+      if (fs.existsSync(bak)) {
+        try {
+          const bakText = fs.readFileSync(bak, 'utf8').replace(/^\uFEFF/, '');
+          const bakJson = JSON.parse(bakText); // 校验
+          fs.writeFileSync(newConfigPath, JSON.stringify(bakJson, null, '\t'), 'utf8');
+          restored = true;
+          console.log('[配置迁移] 已从备份恢复配置');
+        } catch {
+          console.warn('[配置迁移] 备份同样损坏');
+        }
+      }
+      if (!restored) {
+        console.warn('[配置迁移] 无可用备份，将使用默认配置');
+      }
+    }
+  } catch (err) {
+    console.warn('[配置迁移] 配置自愈失败:', err);
+  }
+}
+
+/** 启动前备份现有配置（仅首次生成 .bak，保留最近一次正常配置以防配置意外损坏） */
+function backupExistingConfig(newConfigPath: string): void {
+  try {
+    const bak = newConfigPath + '.bak';
+    if (fs.existsSync(newConfigPath) && !fs.existsSync(bak)) {
+      fs.copyFileSync(newConfigPath, bak);
+      console.log('[配置迁移] 已创建配置备份', bak);
+    }
+  } catch (err) {
+    console.warn('[配置迁移] 备份配置失败:', err);
+  }
+}
+
 /** 执行旧配置迁移（幂等：配置与登录 Cookie 都就绪时跳过；否则迁移/补拷缺失内容） */
 function migrateOldConfig(): void {
   try {
@@ -54,6 +113,9 @@ function migrateOldConfig(): void {
     const newDir = app.getPath('userData'); // 打包后自动为 %APPDATA%\大肥鱼助手
 
     const newConfigPath = path.join(newDir, NEW_CONFIG_FILE_NAME);
+    // 自愈在前：先修复 BOM/损坏（在 electron-store 读取之前），再做备份
+    sanitizeConfigFile(newConfigPath);
+    backupExistingConfig(newConfigPath);
     // 浏览器登录数据（Cookie）所在文件
     const newCookiesPath = path.join(newDir, 'Partitions', 'deepseek', 'Network', 'Cookies');
 
