@@ -193,5 +193,7 @@ export class MainWindowController {
       storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage', 'serviceworkers'],
     });
     await ses.clearCache();
+    // 清完数据后刷新页面，立即回到未登录状态，避免“看起来还登录着”的困惑
+    this.view?.webContents.reload();
   }
 }

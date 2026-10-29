@@ -6,7 +6,7 @@
  *  - 图片可自定义（PNG/JPG/JPEG/GIF/WEBP），加载失败自动回退内置默认图
  *  - 鼠标穿透：仅图片区域响应点击，透明区域点击穿透（setIgnoreMouseEvents + forward）
  */
-import { BrowserWindow, Menu, app, dialog, screen } from 'electron';
+import { BrowserWindow, Menu, Notification, app, dialog, screen } from 'electron';
 import * as path from 'path';
 import { pathToFileURL } from 'url';
 import type { WhaleConfig, WhaleWindowInfo } from '../../shared/types';
@@ -341,7 +341,13 @@ export class WhaleWindowController {
         ],
       },
       { type: 'separator' },
-      { label: '隐藏悬浮窗', click: () => this.setVisible(false) },
+      { label: '隐藏悬浮窗', click: () => {
+          this.setVisible(false);
+          // 提示如何重新显示，避免用户“藏起来就找不回来”
+          if (Notification.isSupported()) {
+            new Notification({ title: '大肥鱼助手', body: '悬浮窗已隐藏，可在系统托盘菜单重新显示' }).show();
+          }
+        } },
       { type: 'separator' },
       { label: '退出软件', click: () => this.deps.quitApp() },
     ]);

@@ -1,7 +1,7 @@
 {
   "name": "dafeiyu-assistant",
   "productName": "大肥鱼助手",
-  "version": "1.2.2",
+  "version": "1.2.6",
   "description": "大肥鱼助手 - 截图 AI 分析工具",
   "main": "dist/main/index.js",
   "author": {

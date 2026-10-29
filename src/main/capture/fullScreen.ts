@@ -28,8 +28,9 @@ export async function captureFullScreenAndPaste(ctx: AppContext): Promise<void> 
     // 等待窗口隐藏动画完成
     await delay(280);
 
-    // 只截取主显示器（物理分辨率）
-    const display = screen.getPrimaryDisplay();
+    // 截取光标所在的显示器（多显示器时更符合直觉：截你正在看的那块屏；
+    // 取不到光标位置时回退主显示器）
+    const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()) ?? screen.getPrimaryDisplay();
     const sources = await desktopCapturer.getSources({
       types: ['screen'],
       thumbnailSize: {

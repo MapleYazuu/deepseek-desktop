@@ -236,6 +236,13 @@ async function init(): Promise<void> {
   $<HTMLInputElement>('hotkey-region').addEventListener('focus', () => startRecording('region', $('hotkey-region')));
   $<HTMLInputElement>('hotkey-fullscreen').addEventListener('keydown', (e) => onHotkeyKeyDown(e, 'fullscreen'));
   $<HTMLInputElement>('hotkey-region').addEventListener('keydown', (e) => onHotkeyKeyDown(e, 'region'));
+  // 点开输入框但没按键就点到别处：取消录制并恢复原值，避免留下“请按下快捷键…”的残留提示
+  $<HTMLInputElement>('hotkey-fullscreen').addEventListener('blur', () => {
+    if (state.recording === 'fullscreen') stopRecording();
+  });
+  $<HTMLInputElement>('hotkey-region').addEventListener('blur', () => {
+    if (state.recording === 'region') stopRecording();
+  });
 
   // 保存快捷键
   $<HTMLButtonElement>('btn-save').addEventListener('click', async () => {
