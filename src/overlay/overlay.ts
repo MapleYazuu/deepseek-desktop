@@ -20,11 +20,17 @@ const img = document.getElementById('screen-img') as HTMLImageElement;
 const selection = document.getElementById('selection') as HTMLDivElement;
 const sizeLabel = document.getElementById('size-label') as HTMLDivElement;
 const hint = document.getElementById('hint') as HTMLDivElement;
+const dimTop = document.getElementById('dim-top') as HTMLDivElement;
+const dimBottom = document.getElementById('dim-bottom') as HTMLDivElement;
+const dimLeft = document.getElementById('dim-left') as HTMLDivElement;
+const dimRight = document.getElementById('dim-right') as HTMLDivElement;
 
 let start: { x: number; y: number } | null = null;
 let end = { x: 0, y: 0 };
 let fx = 1;
 let fy = 1;
+/** rAF 节流：每个动画帧最多重绘一次选区，保证拖动流畅 */
+let rafPending = false;
 
 /** 取消选区（通知主进程关闭全部覆盖层） */
 function cancel(): void {
@@ -45,10 +51,24 @@ function confirmSelection(): void {
   window.overlayApi.confirm({ displayId, rect: { x, y, width, height }, fx, fy });
 }
 
-/** 刷新选区显示 */
+/** 请求一次选区重绘（rAF 节流，mousemove 再多也只每帧画一次） */
+function scheduleUpdate(): void {
+  if (rafPending) return;
+  rafPending = true;
+  requestAnimationFrame(() => {
+    rafPending = false;
+    updateSelection();
+  });
+}
+
+/** 刷新选区显示：4 块遮罩 div + 选区边框，避免整屏 box-shadow 重绘卡顿 */
 function updateSelection(): void {
   if (!start) {
     selection.style.display = 'none';
+    dimTop.style.display = 'none';
+    dimBottom.style.display = 'none';
+    dimLeft.style.display = 'none';
+    dimRight.style.display = 'none';
     hint.style.display = '';
     return;
   }
@@ -56,12 +76,39 @@ function updateSelection(): void {
   const y = Math.min(start.y, end.y);
   const width = Math.abs(end.x - start.x);
   const height = Math.abs(end.y - start.y);
+  const W = window.innerWidth;
+  const H = window.innerHeight;
 
   selection.style.display = 'block';
   selection.style.left = x + 'px';
   selection.style.top = y + 'px';
   selection.style.width = width + 'px';
   selection.style.height = height + 'px';
+
+  // 上 / 下 / 左 / 右 四块遮罩（普通 div，渲染成本极低）
+  dimTop.style.display = 'block';
+  dimTop.style.left = '0';
+  dimTop.style.top = '0';
+  dimTop.style.width = W + 'px';
+  dimTop.style.height = y + 'px';
+
+  dimBottom.style.display = 'block';
+  dimBottom.style.left = '0';
+  dimBottom.style.top = (y + height) + 'px';
+  dimBottom.style.width = W + 'px';
+  dimBottom.style.height = (H - y - height) + 'px';
+
+  dimLeft.style.display = 'block';
+  dimLeft.style.left = '0';
+  dimLeft.style.top = y + 'px';
+  dimLeft.style.width = x + 'px';
+  dimLeft.style.height = height + 'px';
+
+  dimRight.style.display = 'block';
+  dimRight.style.left = (x + width) + 'px';
+  dimRight.style.top = y + 'px';
+  dimRight.style.width = (W - x - width) + 'px';
+  dimRight.style.height = height + 'px';
 
   // 尺寸标签（物理像素），选区贴近顶部时移到选区下方
   sizeLabel.textContent = `${Math.round(width * fx)} × ${Math.round(height * fy)}`;
@@ -79,7 +126,7 @@ function updateSelection(): void {
 /** 清空选区（其他显示器开始选区时同步） */
 function resetSelection(): void {
   start = null;
-  updateSelection();
+  scheduleUpdate();
 }
 
 async function init(): Promise<void> {
@@ -109,12 +156,12 @@ async function init(): Promise<void> {
       start = { x: e.clientX, y: e.clientY };
       end = { ...start };
       window.overlayApi.activate(displayId);
-      updateSelection();
+      scheduleUpdate();
     });
     document.addEventListener('mousemove', (e) => {
       if (!start) return;
       end = { x: e.clientX, y: e.clientY };
-      updateSelection();
+      scheduleUpdate();
     });
     document.addEventListener('mouseup', (e) => {
       if (!start || e.button !== 0) return;

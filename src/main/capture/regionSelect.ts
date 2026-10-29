@@ -36,7 +36,7 @@ import type { OverlayConfirmPayload, OverlayInfo } from '../../shared/types';
 const debounce = createDebounce(600);
 
 /** 选区流程看门狗超时（毫秒）：超时自动取消，防止覆盖层卡住鼠标 */
-const WATCHDOG_TIMEOUT_MS = 120_000;
+const WATCHDOG_TIMEOUT_MS = 90_000;
 
 /** 当前进行中的选区会话 */
 interface ActiveCapture {
@@ -82,14 +82,18 @@ async function captureAllDisplays(displays: Electron.Display[]): Promise<Map<num
   return images;
 }
 
-/** 把各显示器截图写入临时 PNG 文件（返回 displayId -> 文件路径） */
+/**
+ * 把各显示器截图写入临时 JPEG 文件（返回 displayId -> 文件路径）。
+ * 用 JPEG 而不是 PNG：编码更快、文件更小、覆盖层解码更快——
+ * 这里只用作选区背景预览，最终裁剪粘贴到剪贴板的仍然是内存里的无损原图。
+ */
 function writeCaptureFiles(images: Map<number, NativeImage>): Map<number, string> {
   const files = new Map<number, string>();
   const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   for (const [displayId, image] of images) {
     try {
-      const filePath = path.join(app.getPath('temp'), `dafeiyu-capture-${displayId}-${stamp}.png`);
-      fs.writeFileSync(filePath, image.toPNG());
+      const filePath = path.join(app.getPath('temp'), `dafeiyu-capture-${displayId}-${stamp}.jpg`);
+      fs.writeFileSync(filePath, image.toJPEG(85));
       files.set(displayId, filePath);
     } catch (err) {
       console.error(`[区域截图] 写入临时截图文件失败（显示器 ${displayId}）:`, err);
@@ -143,7 +147,7 @@ export async function captureRegionAndPaste(ctx: AppContext): Promise<void> {
       return;
     }
 
-    // 截图写入临时 PNG 文件（覆盖层用 file:// 加载）
+    // 截图写入临时 JPEG 文件（覆盖层用 file:// 加载，编码快、解码快）
     const imageFiles = writeCaptureFiles(images);
 
     // 创建覆盖层窗口并等待用户选择
@@ -154,14 +158,23 @@ export async function captureRegionAndPaste(ctx: AppContext): Promise<void> {
     const selected = await new Promise<NativeImage | null>((resolve) => {
       let resolved = false;
       let watchdog: NodeJS.Timeout | null = null;
+      let overlays: OverlayWindow[] = [];
       const settle = (image: NativeImage | null) => {
         if (resolved) return;
         resolved = true;
         if (watchdog) clearTimeout(watchdog);
         resolve(image);
       };
-      // 先创建覆盖层，再登记 active 状态（保证 overlay:info IPC 到来时 active 已就绪）
-      const overlays = buildOverlayWindows(targets, () => settle(null));
+      try {
+        // 先创建覆盖层，再登记 active 状态（保证 overlay:info IPC 到来时 active 已就绪）
+        overlays = buildOverlayWindows(targets, () => settle(null));
+      } catch (err) {
+        // 创建过程抛错：关闭已创建的部分窗口并取消，避免残留覆盖层卡住鼠标
+        console.error('[区域截图] 创建覆盖层失败:', err);
+        closeOverlayWindows(overlays);
+        settle(null);
+        return;
+      }
       active = { overlays, images, imageFiles, resolve: settle, settled: false };
       showOverlayWindows(overlays);
       // 看门狗：覆盖层页面脚本异常、IPC 失效等导致选区流程无响应时，
